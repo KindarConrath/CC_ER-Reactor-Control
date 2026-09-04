@@ -2,13 +2,13 @@ dofile('tests/cc_stub.lua')
 package.path='./?.lua;'..package.path
 local Companion=require('lib.companion')
 local Settings=require('lib.settings')
-local c=dofile('config.lua');c.companionDisplay={mode='auto'}
+local testConfig=dofile('config.lua');testConfig.companionDisplay={mode='auto'}
 local writes=0
 local broken=false
 local device={kind='storage',name='bottom',label='bottom',online=true,energy=70,capacity=100}
 local devices={poll=function() if broken then error('read failed') end;return {device} end,
   write=function() writes=writes+1 end}
-local peer=Companion.new(2,c,devices)
+local peer=Companion.new(2,testConfig,devices)
 assert(not peer.receive(3,{id='x',op='poll'}) and not peer.state.lastContact)
 local reply=peer.receive(2,{id='p',op='poll'});assert(reply.ok)
 peer.refresh();peer.refresh();assert(writes==0 and #peer.state.devices==1)
@@ -42,7 +42,7 @@ rednet={receive=function() local _,sender,msg=coroutine.yield('rednet_message');
  send=function(sender,msg) sent[#sent+1]=msg end}
 local attached=false;local launches=0
 local service=coroutine.create(function()
-  Companion.run(c,peer,function()
+  Companion.run(testConfig,peer,function()
     launches=launches+1
     assert(attached,'monitor absent')
     while true do coroutine.yield('peripheral_detach');assert(attached,'monitor removed') end
@@ -64,8 +64,8 @@ local selected
 Companion.run=function(config) selected=config.companionDisplay end
 fs,textutils,files=require('tests.memory_fs').new()
 shell={getRunningProgram=function() return 'agent.lua' end}
-c=Settings.load('');assert(c.companionDisplay.mode=='auto')
-c.controllerDisplay={mode='terminal'};c.lastMode='auto';Settings.save('',c)
+testConfig=Settings.load('');assert(testConfig.companionDisplay.mode=='auto')
+testConfig.controllerDisplay={mode='terminal'};testConfig.lastMode='auto';Settings.save('',testConfig)
 local agent=assert(loadfile('agent.lua'))
 agent('2','--monitor','left');assert(selected.mode=='auto' and not selected.name)
 local saved=Settings.load('');assert(saved.controllerDisplay.mode=='terminal' and saved.lastMode=='auto')
@@ -76,7 +76,7 @@ agent('2','--terminal');agent('2');assert(selected.mode=='terminal')
 agent('2','--no-display');agent('2');assert(selected.mode=='off')
 assert(not pcall(agent,'2','--monitor'));assert(Settings.load('').companionDisplay.mode=='off')
 agent('2','--auto-display');assert(selected.mode=='auto')
-c=Settings.load('');c.companionDisplay={mode='monitor',name='removed_monitor_0'};Settings.save('',c)
+testConfig=Settings.load('');testConfig.companionDisplay={mode='monitor',name='removed_monitor_0'};Settings.save('',testConfig)
 agent('2');assert(selected.mode=='auto' and not selected.name)
 Companion.run=originalRun
 local served=false

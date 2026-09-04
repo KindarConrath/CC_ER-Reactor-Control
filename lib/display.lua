@@ -1,33 +1,49 @@
 -- Shared monitor discovery for controller and companion dashboards.
-local M={}
-function M.usable(display,minWidth,minHeight)
-  local ok,usable=pcall(function()
-    if not display or not display.isColor() then return false end
-    local width,height=display.getSize()
-    return width>=(minWidth or 45) and height>=(minHeight or 19)
-  end)
-  return ok and usable
-end
-function M.findMonitor(minWidth,minHeight)
-  local names=peripheral.getNames();table.sort(names)
-  for _,name in ipairs(names) do
-    local ok,display=pcall(function()
-      if peripheral.hasType(name,"monitor") then return peripheral.wrap(name) end
-    end)
-    if ok and M.usable(display,minWidth,minHeight) then return display,name end
-  end
-end
-function M.controller(config,computer)
-  local selected,name
-  return function()
-    if config.controllerDisplay.mode=="auto" then
-      -- Keep a working monitor instead of switching whenever another is attached.
-      local ok,present=pcall(peripheral.hasType,name or "","monitor")
-      if name and ok and present and M.usable(selected) then return selected end
-      selected,name=M.findMonitor()
-      if selected then return selected end
+local Display = {}
+
+function Display.usable(display, minimumWidth, minimumHeight)
+  local succeeded, usable = pcall(function()
+    if not display or not display.isColor() then
+      return false
     end
-    return computer
+    local width, height = display.getSize()
+    return width >= (minimumWidth or 45) and height >= (minimumHeight or 19)
+  end)
+  return succeeded and usable
+end
+
+function Display.findMonitor(minimumWidth, minimumHeight)
+  local peripheralNames = peripheral.getNames()
+  table.sort(peripheralNames)
+  for _, peripheralName in ipairs(peripheralNames) do
+    local succeeded, monitor = pcall(function()
+      if peripheral.hasType(peripheralName, "monitor") then
+        return peripheral.wrap(peripheralName)
+      end
+    end)
+    if succeeded and Display.usable(monitor, minimumWidth, minimumHeight) then
+      return monitor, peripheralName
+    end
   end
 end
-return M
+
+function Display.controller(config, computerDisplay)
+  local selectedMonitor
+  local selectedName
+  return function()
+    if config.controllerDisplay.mode == "auto" then
+      -- Keep a working monitor instead of switching whenever another is attached.
+      local succeeded, present = pcall(peripheral.hasType, selectedName or "", "monitor")
+      if selectedName and succeeded and present and Display.usable(selectedMonitor) then
+        return selectedMonitor
+      end
+      selectedMonitor, selectedName = Display.findMonitor()
+      if selectedMonitor then
+        return selectedMonitor
+      end
+    end
+    return computerDisplay
+  end
+end
+
+return Display

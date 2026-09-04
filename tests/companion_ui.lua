@@ -18,9 +18,9 @@ local function exercise(display,touch)
  local ui=UI.new(basalt,state,display)
  local function render() fakeTime=fakeTime+1;ui.refresh();basalt.update('timer',999) end
  local function click(label)
-  local b=assert(ui.buttons[label]);
-  if touch then basalt.update('monitor_touch','monitor_0',b.x+1,b.y)
-  else basalt.update('mouse_click',1,b.x+1,b.y);basalt.update('mouse_up',1,b.x+1,b.y) end
+  local button=assert(ui.buttons[label]);
+  if touch then basalt.update('monitor_touch','monitor_0',button.x+1,button.y)
+  else basalt.update('mouse_click',1,button.x+1,button.y);basalt.update('mouse_up',1,button.x+1,button.y) end
   render()
  end
  render();assert(not ui.buttons.Turbines and not ui.buttons.Storage and ui.buttons.Overview)
@@ -43,7 +43,7 @@ local function exercise(display,touch)
  state.devices={reactor,turbine,storage};local mixed=UI.new(basalt,state,display);mixed.refresh();assert(mixed.tab=='Overview')
 end
 exercise(term,false)
-local monitor={};for k,v in pairs(term) do monitor[k]=v end
+local monitor={};for key,value in pairs(term) do monitor[key]=value end
 exercise(monitor,true)
 term.getSize=function() return 23,17 end
 monitor.getSize=term.getSize
@@ -137,8 +137,8 @@ monitor.getSize=term.getSize
 print('PASS 23 x 17 compact peer tabs and three-line device selector')
 print('PASS peer tabs resize without clipping and three-row centered arrows navigate')
 print('PASS full peer tab labels whenever they fit, all device combinations, mouse and touch')
-local c={companionDisplay={mode='auto'},interval=1}
-assert(pcall(UI.run,'.',c,{}),'No monitor is normal headless operation')
+local testConfig={companionDisplay={mode='auto'},interval=1}
+assert(pcall(UI.run,'.',testConfig,{}),'No monitor is normal headless operation')
 print('PASS actual Basalt companion telemetry, category selection, mouse and monitor navigation')
 
 -- Discovery accepts direct and wired monitors; stale names, small, monochrome,
@@ -165,7 +165,7 @@ print('PASS direct/wired automatic monitor selection, replacement IDs and unsuit
 local polls=0
 local peer={state=state,refresh=function() polls=polls+1 end}
 os.pullEventRaw=function() return coroutine.yield() end
-local worker=coroutine.create(function() require('lib.companion').display(c,peer,function() UI.run('.',c,peer) end) end)
+local worker=coroutine.create(function() require('lib.companion').display(testConfig,peer,function() UI.run('.',testConfig,peer) end) end)
 local function resume(...)
  fakeTime=fakeTime+1
  local ok,err=coroutine.resume(worker,...);assert(ok,err)

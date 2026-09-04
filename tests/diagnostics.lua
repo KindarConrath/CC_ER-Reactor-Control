@@ -5,15 +5,27 @@ local files
 local count=0
 os.getComputerID=function() return 42 end
 os.epoch=function() return 100000 end
-local function test(name,f)
+local function test(name, callback)
   fs,textutils,files=memory.new()
-  local c=dofile("config.lua");c.remotePeers={4,5,6};c.lastMode="auto"
-  c.autoSnapshot={topology="direct",generators="old-plant",storage="",peers="4|5|6"}
-  Settings.save(".",c)
-  local ok,err=pcall(f);assert(ok,name..": "..tostring(err));count=count+1;print("PASS "..name)
+  local config = dofile("config.lua")
+  config.remotePeers = {4, 5, 6}
+  config.lastMode = "auto"
+  config.autoSnapshot = {
+    topology = "direct",
+    generators = "old-plant",
+    storage = "",
+    peers = "4|5|6",
+  }
+  Settings.save(".", config)
+  local succeeded, testError = pcall(callback)
+  assert(succeeded, name .. ": " .. tostring(testError))
+  count = count + 1
+  print("PASS " .. name)
 end
 local methods={}
-for i=1,500 do methods[#methods+1]=string.format("method%03d",i) end
+for index = 1, 500 do
+  methods[#methods + 1] = string.format("method%03d", index)
+end
 peripheral={getNames=function() return {"left"} end,
   getType=function() return "BigReactors-Reactor","test_type" end,
   hasType=function(_,kind) return kind=="BigReactors-Reactor" end,

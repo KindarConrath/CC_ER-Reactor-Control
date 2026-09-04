@@ -59,11 +59,11 @@ local function appendDirectoryEntries(lines, parent, heading)
       entries[#entries + 1] = {name = path, bytes = fileTreeSize(path)}
     end
   end
-  table.sort(entries, function(a, b)
-    if a.bytes == b.bytes then
-      return a.name < b.name
+  table.sort(entries, function(leftEntry, rightEntry)
+    if leftEntry.bytes == rightEntry.bytes then
+      return leftEntry.name < rightEntry.name
     end
-    return a.bytes > b.bytes
+    return leftEntry.bytes > rightEntry.bytes
   end)
 
   lines[#lines + 1] = heading .. " (file bytes; excludes allocation overhead):"
@@ -197,13 +197,13 @@ end
 
 -- Shrinking files go first. Replacing in place requires only net growth plus
 -- a small allocation/settings margin, not enough room for a second full copy.
-table.sort(changes, function(a, b)
-  local changeA = #a.data - a.oldSize
-  local changeB = #b.data - b.oldSize
-  if changeA == changeB then
-    return a.name < b.name
+table.sort(changes, function(leftChange, rightChange)
+  local leftGrowth = #leftChange.data - leftChange.oldSize
+  local rightGrowth = #rightChange.data - rightChange.oldSize
+  if leftGrowth == rightGrowth then
+    return leftChange.name < rightChange.name
   end
-  return changeA < changeB
+  return leftGrowth < rightGrowth
 end)
 
 local required = requiredGrowth(changes)

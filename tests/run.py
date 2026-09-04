@@ -8,7 +8,10 @@ from lupa.lua52 import LuaRuntime
 root = Path(__file__).resolve().parents[1]
 os.chdir(root)
 lua = LuaRuntime(unpack_returned_tuples=True)
-check = lua.eval('function(s,n) local f,e=load(s,n); return f~=nil,e end')
+check = lua.eval('''function(source, name)
+  local chunk, loadError = load(source, name)
+  return chunk ~= nil, loadError
+end''')
 files = list(root.rglob('*.lua'))
 for path in files:
     ok, error = check(path.read_text(), str(path))

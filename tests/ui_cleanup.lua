@@ -1,17 +1,17 @@
 dofile('tests/cc_stub.lua')
 package.path='./?.lua;'..package.path
-local P=require('lib.presentation')
-local c=dofile('config.lua');c.calibration={};c.storage={'demo/battery'}
-local b=require('lib.demo').new(true);b.advance=nil;b.devices[1].rods=90
-local app=require('lib.app').new(c,b,'.',true);app.tick()
+local Presentation=require('lib.presentation')
+local testConfig=dofile('config.lua');testConfig.calibration={};testConfig.storage={'demo/battery'}
+local backend=require('lib.demo').new(true);backend.advance=nil;backend.devices[1].rods=90
+local app=require('lib.app').new(testConfig,backend,'.',true);app.tick()
 local env=setmetatable({},{__index=_ENV});env._G=env
 local basalt=assert(loadfile('vendor/basalt.lua','t',env))()
 basalt.getErrorManager().error=function(err) error(err) end
 local ui=require('lib.ui').new(basalt,app,term)
 local function render() fakeTime=fakeTime+1;ui.refresh();basalt.update('timer',999) end
 local function click(name)
- local p=assert(ui.buttons[name],name)
- basalt.update('mouse_click',1,p.x+1,p.y);basalt.update('mouse_up',1,p.x+1,p.y)
+ local button=assert(ui.buttons[name],name)
+ basalt.update('mouse_click',1,button.x+1,button.y);basalt.update('mouse_up',1,button.x+1,button.y)
 end
 local function contains(text)
  for _,row in ipairs(screen) do if row.text:find(text,1,true) then return true end end;return false
@@ -25,33 +25,33 @@ local arrowColumn=ui.buttons['>'].x+1
 assert(screen[7].text:sub(arrowColumn,arrowColumn)==' ' and screen[8].text:sub(arrowColumn,arrowColumn)=='>' and screen[9].text:sub(arrowColumn,arrowColumn)==' ')
 assert(ui.buttons.Rename.x+ui.buttons.Rename.width<=ui.buttons['>'].x)
 click('0%');assert(#app.queue==0 and contains('Rod target: 0%'))
-click('Apply');assert(#app.queue==1 and app.queue[1].value==0 and #b.writes==0)
-app.tick();app.tick();render();assert(b.devices[1].rods==0 and not ui.rodDrafts[b.devices[1].id].requested)
+click('Apply');assert(#app.queue==1 and app.queue[1].value==0 and #backend.writes==0)
+app.tick();app.tick();render();assert(backend.devices[1].rods==0 and not ui.rodDrafts[backend.devices[1].id].requested)
 click('100%');for _=1,4 do click('-5') end;click('-1')
-assert(contains('Rod target: 79%') and b.devices[1].rods==0)
+assert(contains('Rod target: 79%') and backend.devices[1].rods==0)
 render();assert(contains('Rod target: 79%'))
 click('Apply');click('+1');click('Apply');assert(#app.queue==1 and app.queue[1].value==80)
 click('>');click('25%');click('Apply')
-assert(#app.queue==2 and app.queue[2].id==b.devices[2].id and app.queue[2].value==25)
-app.tick();assert(b.devices[1].rods==80 and b.devices[2].rods==25)
+assert(#app.queue==2 and app.queue[2].id==backend.devices[2].id and app.queue[2].value==25)
+app.tick();assert(backend.devices[1].rods==80 and backend.devices[2].rods==25)
 app.tick();render()
-click('0%');click('-5');assert(ui.rodDrafts[b.devices[2].id].value==0)
-click('100%');click('+5');assert(ui.rodDrafts[b.devices[2].id].value==100)
-click('Actual');assert(ui.rodDrafts[b.devices[2].id].value==25)
+click('0%');click('-5');assert(ui.rodDrafts[backend.devices[2].id].value==0)
+click('100%');click('+5');assert(ui.rodDrafts[backend.devices[2].id].value==100)
+click('Actual');assert(ui.rodDrafts[backend.devices[2].id].value==25)
 print('PASS passive tabs and immediate, independent rod targets with presets, fine steps and Apply')
 
 -- Renaming uses actual input events and keeps the field across background refreshes.
 app.enqueue('mode',nil,'auto');app.tick();render();assert(not ui.buttons.Apply)
-local id=app.reactors[2].id;local oldSnapshot=c.autoSnapshot
+local id=app.reactors[2].id;local oldSnapshot=testConfig.autoSnapshot
 click('Rename')
 basalt.update('mouse_click',1,3,8);basalt.update('mouse_up',1,3,8)
 for char in ('Surge reactor'):gmatch('.') do basalt.update('char',char) end
 assert(ui.nameInput:getText()=='Surge reactor')
 local input=ui.nameInput;app.tick();render();assert(ui.nameInput==input and input:getText()=='Surge reactor')
-click('Save name');assert(c.deviceNames[id]=='Surge reactor' and app.mode=='auto' and c.autoSnapshot==oldSnapshot)
+click('Save name');assert(testConfig.deviceNames[id]=='Surge reactor' and app.mode=='auto' and testConfig.autoSnapshot==oldSnapshot)
 assert(contains('Surge reactor') and app.reactors[2].id==id)
-click('Rename');click('Automatic');assert(not c.deviceNames[id])
-click('Rename');basalt.update('char','X');click('Cancel');assert(not c.deviceNames[id])
+click('Rename');click('Automatic');assert(not testConfig.deviceNames[id])
+click('Rename');basalt.update('char','X');click('Cancel');assert(not testConfig.deviceNames[id])
 app.enqueue('mode',nil,'manual');app.tick();render();assert(ui.buttons.Apply)
 print('PASS name input survives polling; rename/reset/cancel preserve IDs and Auto mode')
 
@@ -64,27 +64,27 @@ print('PASS rod and naming controls fit the minimum 45-column display')
 -- Companion overview contains only present device categories and sums storage by capacity.
 local storages={{name='bottom',kind='storage',online=true,energy=50,capacity=100},
  {name='bank_2',kind='storage',online=true,energy=150,capacity=300}}
-local lines=table.concat(P.overview(P.groups(storages)),'\n')
+local lines=table.concat(Presentation.overview(Presentation.groups(storages)),'\n')
 assert(lines:find('Local storage: 50.0%%') and not lines:find('Reactor') and not lines:find('Turbine'))
 local onlyReactor={{name='back',kind='reactor',online=true,cooled=false,output=500}}
-lines=table.concat(P.overview(P.groups(onlyReactor)),'\n')
+lines=table.concat(Presentation.overview(Presentation.groups(onlyReactor)),'\n')
 assert(lines:find('Reactor output') and not lines:find('storage') and not lines:find('steam') and not lines:find('Turbine'))
 local onlyTurbine={{name='back',kind='turbine',online=true,output=500}}
-lines=table.concat(P.overview(P.groups(onlyTurbine)),'\n')
+lines=table.concat(Presentation.overview(Presentation.groups(onlyTurbine)),'\n')
 assert(lines:find('Turbine output') and not lines:find('Reactor') and not lines:find('storage'))
 local unavailable={{name='back',kind='reactor',online=false}}
-lines=table.concat(P.overview(P.groups(unavailable)),'\n');assert(lines:find('unavailable') and not lines:find('0.0 FE'))
-assert(#P.tabs(P.groups({}))==1)
+lines=table.concat(Presentation.overview(Presentation.groups(unavailable)),'\n');assert(lines:find('unavailable') and not lines:find('0.0 FE'))
+assert(#Presentation.tabs(Presentation.groups({}))==1)
 local first={id='peer:4/back',peer=4,name='back',kind='reactor',cooled=false}
 local second={id='peer:5/back',peer=5,name='back',kind='reactor',cooled=false}
-assert(P.title(first,c)~=P.title(second,c) and P.title(first,c):find('Peer 4 / Back',1,true))
-local location,name=P.deviceHeading(first,c)
+assert(Presentation.title(first,testConfig)~=Presentation.title(second,testConfig) and Presentation.title(first,testConfig):find('Peer 4 / Back',1,true))
+local location,name=Presentation.deviceHeading(first,testConfig)
 assert(location=='Peer 4 / Back' and name=='Passive reactor')
 local cube={name='bottom',kind='storage',peripheralTypes={'ultimateEnergyCube','energy_storage'}}
-assert(P.title(cube,c):find('Ultimate energy cube',1,true))
+assert(Presentation.title(cube,testConfig):find('Ultimate energy cube',1,true))
 print('PASS relevant peer summaries, capacity-weighted storage and distinct descriptive device names')
 -- Monitor navigation uses the same target editing and keyboard naming controls.
-local monitor={};for k,v in pairs(term) do monitor[k]=v end
+local monitor={};for key,value in pairs(term) do monitor[key]=value end
 local monitorEnv=setmetatable({},{__index=_ENV});monitorEnv._G=monitorEnv
 local monitorBasalt=assert(loadfile('vendor/basalt.lua','t',monitorEnv))()
 monitorBasalt.getErrorManager().error=function(err) error(err) end
@@ -99,5 +99,5 @@ assert(app.queue[#app.queue].value==48)
 touch('Rename');monitorBasalt.update('monitor_touch','monitor_0',3,8)
 for char in ('Monitor name'):gmatch('.') do monitorBasalt.update('char',char) end
 assert(monitorUI.nameInput:getText()=='Monitor name')
-monitorUI.refresh();touch('Save name');assert(c.deviceNames[b.devices[1].id]=='Monitor name')
+monitorUI.refresh();touch('Save name');assert(testConfig.deviceNames[backend.devices[1].id]=='Monitor name')
 print('PASS monitor touch rod editing and keyboard naming')

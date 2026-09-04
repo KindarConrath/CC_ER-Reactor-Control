@@ -26,13 +26,15 @@ not treated as supported public releases.
 - [x] User-facing README separated from development history.
 - [x] Basalt2 pinned revision and license verified; hashes recorded.
 - [x] Git ignore rules exclude generated builds, state, diagnostics, and Python caches.
+- [x] One-letter identifiers removed from first-party runtime, tools, and test fixtures except
+  intentional ignored values and coordinate fields.
 
 ### Required before publishing
 
 - [x] Add the MIT project license with KindarConrath copyright wording.
 - [x] Insert the public repository URL and versioned in-game `wget` command.
-- [ ] Run the complete host suite on the final version and license bytes.
-- [ ] Inspect the final ZIP contents and installer disk footprint.
+- [x] Run the complete host suite on the final version and license bytes.
+- [x] Inspect the final ZIP contents and installer disk footprint.
 - [ ] Create a GitHub prerelease, attach only the versioned installer and source archive, and use the
   0.1.42 changelog entry as release notes.
 

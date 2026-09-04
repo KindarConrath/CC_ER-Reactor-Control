@@ -1,122 +1,228 @@
 -- Display names and summaries only: never change transport IDs or control policy.
-local U=require('lib.util')
-local M={}
-local categories={reactor='Reactors',turbine='Turbines',storage='Storage'}
-function M.groups(devices)
-  local groups={Reactors={},Turbines={},Storage={}}
-  for _,d in ipairs(devices) do
-    local category=categories[d.kind]
-    if category then groups[category][#groups[category]+1]=d end
+local Util = require("lib.util")
+local Presentation = {}
+
+local categories = {
+  reactor = "Reactors",
+  turbine = "Turbines",
+  storage = "Storage",
+}
+
+function Presentation.groups(devices)
+  local groups = {Reactors = {}, Turbines = {}, Storage = {}}
+  for _, device in ipairs(devices) do
+    local category = categories[device.kind]
+    if category then
+      groups[category][#groups[category] + 1] = device
+    end
   end
   return groups
 end
-function M.tabs(groups)
-  local tabs={'Overview'}
-  for _,category in ipairs({'Reactors','Turbines','Storage'}) do
-    if #groups[category]>0 then tabs[#tabs+1]=category end
+
+function Presentation.tabs(groups)
+  local tabs = {"Overview"}
+  for _, category in ipairs({"Reactors", "Turbines", "Storage"}) do
+    if #groups[category] > 0 then
+      tabs[#tabs + 1] = category
+    end
   end
   return tabs
 end
-function M.baseName(d)
-  if d.label and d.label~=d.name and d.label~=d.id then return d.label end
-  if d.kind=='reactor' then
-    if d.cooled==nil then return 'Reactor' end
-    return d.cooled and 'Cooled reactor' or 'Passive reactor'
-  elseif d.kind=='turbine' then return 'Turbine' end
-  local types=table.concat(d.peripheralTypes or {},' ')..' '..(d.name or '')
-  for _,tier in ipairs({'basic','advanced','elite','ultimate','creative'}) do
-    if types:find(tier..'EnergyCube',1,true) then
-      return tier:sub(1,1):upper()..tier:sub(2)..' energy cube'
+
+function Presentation.baseName(device)
+  if device.label and device.label ~= device.name and device.label ~= device.id then
+    return device.label
+  end
+  if device.kind == "reactor" then
+    if device.cooled == nil then
+      return "Reactor"
+    end
+    return device.cooled and "Cooled reactor" or "Passive reactor"
+  elseif device.kind == "turbine" then
+    return "Turbine"
+  end
+
+  local types = table.concat(device.peripheralTypes or {}, " ") .. " " .. (device.name or "")
+  for _, tier in ipairs({"basic", "advanced", "elite", "ultimate", "creative"}) do
+    if types:find(tier .. "EnergyCube", 1, true) then
+      return tier:sub(1, 1):upper() .. tier:sub(2) .. " energy cube"
     end
   end
-  if types:find('capacitor_bank',1,true) then return 'Capacitor bank' end
-  if types:find('rftoolspower:',1,true) then return 'RFTools powercell' end
-  return 'Energy storage'
-end
-function M.deviceHeading(d,c)
-  local id=d.id or ('local/'..d.name)
-  local alias=c and c.deviceNames and c.deviceNames[id]
-  local name=d.name or id
-  if name==id then name=id:match('[^/]+$') or name end
-  local sides={back=true,front=true,left=true,right=true,top=true,bottom=true}
-  local location=sides[name] and (name:sub(1,1):upper()..name:sub(2)) or ('Port '..(name:match('_(%d+)$') or name))
-  local peer=d.peer or tostring(id):match('^peer:(%d+)/')
-  local owner=peer and ('Peer '..peer) or 'Local'
-  return owner..' / '..location,alias or M.baseName(d)
-end
-function M.title(d,c)
-  local location,name=M.deviceHeading(d,c)
-  return location..' - '..name
-end
-function M.fitName(name,width)
-  if #name<=width then return name end
-  local lower=name:lower()
-  local tier
-  for _,candidate in ipairs({'basic','advanced','elite','ultimate','creative'}) do
-    if lower==candidate..' energy cube' then tier=candidate break end
+  if types:find("capacitor_bank", 1, true) then
+    return "Capacitor bank"
   end
-  local alternatives={}
-  if tier then
-    local proper=tier:sub(1,1):upper()..tier:sub(2)
-    alternatives={proper..' Cube',proper:sub(1,math.min(3,#proper))..'. Cube'}
-  elseif lower:find('capacitor bank',1,true) then
-    alternatives={'Capacitor Bank','Cap. Bank'}
-  elseif lower:find('powercell',1,true) then
-    alternatives={'Powercell'}
+  if types:find("rftoolspower:", 1, true) then
+    return "RFTools powercell"
   end
-  for _,candidate in ipairs(alternatives) do
-    if #candidate<=width then return candidate end
+  return "Energy storage"
+end
+
+function Presentation.deviceHeading(device, config)
+  local deviceId = device.id or ("local/" .. device.name)
+  local alias = config and config.deviceNames and config.deviceNames[deviceId]
+  local peripheralName = device.name or deviceId
+  if peripheralName == deviceId then
+    peripheralName = deviceId:match("[^/]+$") or peripheralName
   end
-  if width<=3 then return name:sub(1,width) end
-  return name:sub(1,width-3)..'...'
+
+  local peripheralSides = {
+    back = true,
+    front = true,
+    left = true,
+    right = true,
+    top = true,
+    bottom = true,
+  }
+  local location
+  if peripheralSides[peripheralName] then
+    location = peripheralName:sub(1, 1):upper() .. peripheralName:sub(2)
+  else
+    location = "Port " .. (peripheralName:match("_(%d+)$") or peripheralName)
+  end
+
+  local peerId = device.peer or tostring(deviceId):match("^peer:(%d+)/")
+  local owner = peerId and ("Peer " .. peerId) or "Local"
+  return owner .. " / " .. location, alias or Presentation.baseName(device)
 end
-function M.validName(value)
-  assert(type(value)=='string','Name must be text')
-  value=value:match('^%s*(.-)%s*$')
-  assert(#value<=32 and not value:find('%c'),'Use at most 32 characters without control characters')
-  return value~='' and value or nil
+
+function Presentation.title(device, config)
+  local location, name = Presentation.deviceHeading(device, config)
+  return location .. " - " .. name
 end
-function M.overview(groups)
-  local lines={}
-  local function add(s) lines[#lines+1]=s end
-  local offline=0
-  if #groups.Reactors>0 then
-    add('Reactors: '..#groups.Reactors)
-    local passive,cooled,power,steam=0,0,0,0
-    for _,d in ipairs(groups.Reactors) do
-      if not d.online then offline=offline+1
-      elseif d.cooled then cooled=cooled+1;steam=steam+(d.steam or 0)
-      else passive=passive+1;power=power+(d.output or 0) end
+
+function Presentation.fitName(name, width)
+  if #name <= width then
+    return name
+  end
+
+  local lowerName = name:lower()
+  local energyCubeTier
+  for _, candidate in ipairs({"basic", "advanced", "elite", "ultimate", "creative"}) do
+    if lowerName == candidate .. " energy cube" then
+      energyCubeTier = candidate
+      break
     end
-    if passive>0 then add('Reactor output: '..U.format(power)..' FE/t') end
-    if cooled>0 then add('Reactor steam: '..U.format(steam)..' mB/t') end
-    if passive+cooled==0 then add('Reactor readings unavailable') end
   end
-  if #groups.Turbines>0 then
-    add('Turbines: '..#groups.Turbines)
-    local power,online=0,0
-    for _,d in ipairs(groups.Turbines) do
-      if d.online then online=online+1;power=power+(d.output or 0) else offline=offline+1 end
+
+  local alternatives = {}
+  if energyCubeTier then
+    local properTier = energyCubeTier:sub(1, 1):upper() .. energyCubeTier:sub(2)
+    alternatives = {
+      properTier .. " Cube",
+      properTier:sub(1, math.min(3, #properTier)) .. ". Cube",
+    }
+  elseif lowerName:find("capacitor bank", 1, true) then
+    alternatives = {"Capacitor Bank", "Cap. Bank"}
+  elseif lowerName:find("powercell", 1, true) then
+    alternatives = {"Powercell"}
+  end
+
+  for _, candidate in ipairs(alternatives) do
+    if #candidate <= width then
+      return candidate
     end
-    add(online>0 and ('Turbine output: '..U.format(power)..' FE/t') or 'Turbine readings unavailable')
   end
-  if #groups.Storage>0 then
-    add('Storage devices: '..#groups.Storage)
-    local energy,capacity,seen=0,0,{}
-    for _,d in ipairs(groups.Storage) do
-      if not d.online then offline=offline+1
+  if width <= 3 then
+    return name:sub(1, width)
+  end
+  return name:sub(1, width - 3) .. "..."
+end
+
+function Presentation.validName(value)
+  assert(type(value) == "string", "Name must be text")
+  value = value:match("^%s*(.-)%s*$")
+  assert(#value <= 32 and not value:find("%c"),
+    "Use at most 32 characters without control characters")
+  return value ~= "" and value or nil
+end
+
+function Presentation.overview(groups)
+  local lines = {}
+  local unavailableCount = 0
+
+  local function addLine(line)
+    lines[#lines + 1] = line
+  end
+
+  if #groups.Reactors > 0 then
+    addLine("Reactors: " .. #groups.Reactors)
+    local passiveCount = 0
+    local cooledCount = 0
+    local totalPower = 0
+    local totalSteam = 0
+    for _, reactor in ipairs(groups.Reactors) do
+      if not reactor.online then
+        unavailableCount = unavailableCount + 1
+      elseif reactor.cooled then
+        cooledCount = cooledCount + 1
+        totalSteam = totalSteam + (reactor.steam or 0)
       else
-        local id=d.identity or d.id or d.name
-        if not seen[id] then seen[id]=true;energy=energy+d.energy;capacity=capacity+d.capacity end
+        passiveCount = passiveCount + 1
+        totalPower = totalPower + (reactor.output or 0)
       end
     end
-    if capacity>0 then
-      add(string.format('Local storage: %.1f%%',energy/capacity*100))
-      add(U.format(energy)..' / '..U.format(capacity)..' FE')
-    else add('Storage readings unavailable') end
+    if passiveCount > 0 then
+      addLine("Reactor output: " .. Util.format(totalPower) .. " FE/t")
+    end
+    if cooledCount > 0 then
+      addLine("Reactor steam: " .. Util.format(totalSteam) .. " mB/t")
+    end
+    if passiveCount + cooledCount == 0 then
+      addLine("Reactor readings unavailable")
+    end
   end
-  if #lines==0 then add('No local devices connected') end
-  if offline>0 then add('Unavailable devices: '..offline) end
+
+  if #groups.Turbines > 0 then
+    addLine("Turbines: " .. #groups.Turbines)
+    local totalPower = 0
+    local onlineCount = 0
+    for _, turbine in ipairs(groups.Turbines) do
+      if turbine.online then
+        onlineCount = onlineCount + 1
+        totalPower = totalPower + (turbine.output or 0)
+      else
+        unavailableCount = unavailableCount + 1
+      end
+    end
+    if onlineCount > 0 then
+      addLine("Turbine output: " .. Util.format(totalPower) .. " FE/t")
+    else
+      addLine("Turbine readings unavailable")
+    end
+  end
+
+  if #groups.Storage > 0 then
+    addLine("Storage devices: " .. #groups.Storage)
+    local totalEnergy = 0
+    local totalCapacity = 0
+    local seenIdentities = {}
+    for _, storage in ipairs(groups.Storage) do
+      if not storage.online then
+        unavailableCount = unavailableCount + 1
+      else
+        local identity = storage.identity or storage.id or storage.name
+        if not seenIdentities[identity] then
+          seenIdentities[identity] = true
+          totalEnergy = totalEnergy + storage.energy
+          totalCapacity = totalCapacity + storage.capacity
+        end
+      end
+    end
+    if totalCapacity > 0 then
+      addLine(string.format("Local storage: %.1f%%", totalEnergy / totalCapacity * 100))
+      addLine(Util.format(totalEnergy) .. " / " .. Util.format(totalCapacity) .. " FE")
+    else
+      addLine("Storage readings unavailable")
+    end
+  end
+
+  if #lines == 0 then
+    addLine("No local devices connected")
+  end
+  if unavailableCount > 0 then
+    addLine("Unavailable devices: " .. unavailableCount)
+  end
   return lines
 end
-return M
+
+return Presentation

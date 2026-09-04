@@ -12,7 +12,7 @@ VERSION = json.loads((root / 'lib/version.lua').read_text().removeprefix('return
 
 
 def compress(data):
-    dictionary = {bytes([i]): i for i in range(256)}
+    dictionary = {bytes([value]): value for value in range(256)}
     next_code = 256
     word = b''
     codes = []
@@ -27,17 +27,17 @@ def compress(data):
                 dictionary[combined] = next_code
                 next_code += 1
             else:
-                dictionary = {bytes([i]): i for i in range(256)}
+                dictionary = {bytes([value]): value for value in range(256)}
                 next_code = 256
             word = char
     if word:
         codes.append(dictionary[word])
     packed = bytearray()
-    for i in range(0, len(codes), 2):
-        first = codes[i]
+    for index in range(0, len(codes), 2):
+        first = codes[index]
         packed.extend((first >> 4, (first & 15) << 4))
-        if i + 1 < len(codes):
-            second = codes[i + 1]
+        if index + 1 < len(codes):
+            second = codes[index + 1]
             packed[-1] |= second >> 8
             packed.append(second & 255)
     return base64.b64encode(packed).decode('ascii')
@@ -47,7 +47,11 @@ runtime = [
     'main.lua', 'agent.lua', 'startup.lua', 'diagnostics.lua', 'config.lua',
     'LICENSE', 'THIRD_PARTY_NOTICES.txt',
 ]
-runtime += [p.relative_to(root).as_posix() for p in sorted((root / 'lib').glob('*.lua'))]
+runtime += [
+    path.relative_to(root).as_posix()
+    for path in sorted((root / 'lib').glob('*.lua'))
+    if path.name != 'demo.lua'
+]
 runtime += ['vendor/basalt.lua', 'vendor/BASALT-LICENSE.txt']
 # Refresh every first-party module. User configuration and the pinned vendor bundle
 # are preserved; adding a runtime module must not require a second manifest edit.
@@ -69,6 +73,10 @@ def build(names, role):
 
 def source_files():
     paths = set(runtime + ['README.md', 'CHANGELOG.md'])
+    paths.update(
+        path.relative_to(root).as_posix()
+        for path in (root / 'lib').glob('*.lua')
+    )
     for directory in ('docs', 'tests', 'tools'):
         paths.update(
             path.relative_to(root).as_posix()

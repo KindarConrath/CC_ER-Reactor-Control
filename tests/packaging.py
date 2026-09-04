@@ -17,12 +17,15 @@ updater = updater_path.read_text()
 
 with builder.zipfile.ZipFile(dist / f'reactor-control-{version}.zip') as archive:
     assert archive.read('reactor-control/tools/demo.lua') == (root / 'tools/demo.lua').read_bytes()
+    assert archive.read('reactor-control/lib/demo.lua') == (root / 'lib/demo.lua').read_bytes()
     assert f'reactor-control-update-{version}.lua' not in archive.namelist()
     assert f'reactor-control-install-{version}.lua' in archive.namelist()
 print('PASS first-release archive contains installer and source, but no updater artifact')
 assert 'tools/demo.lua' not in builder.runtime
 assert 'tools/demo.lua' not in builder.update_paths
-print('PASS development demo launcher stays in source archive, outside installed runtime')
+assert 'lib/demo.lua' not in builder.runtime
+assert 'lib/demo.lua' not in builder.update_paths
+print('PASS development demo code stays in source archive, outside installed runtime')
 
 # Binary edge cases exercise dictionary reset, repeated sequences and padding.
 binary_lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
@@ -44,14 +47,14 @@ class Computer:
         self.answers = ['']
         self.lua = LuaRuntime(unpack_returned_tuples=True)
         fs = self.lua.table()
-        fs.combine = lambda a, b: self.path(a + '/' + b)
-        fs.getDir = lambda p: self.path(p).rpartition('/')[0]
-        fs.exists = lambda p: self.path(p) in self.files or self.path(p) in self.dirs
-        fs.isDir = lambda p: self.path(p) in self.dirs
-        fs.getSize = lambda p: len(self.files[self.path(p)].encode())
+        fs.combine = lambda left, right: self.path(left + '/' + right)
+        fs.getDir = lambda path: self.path(path).rpartition('/')[0]
+        fs.exists = lambda path: self.path(path) in self.files or self.path(path) in self.dirs
+        fs.isDir = lambda path: self.path(path) in self.dirs
+        fs.getSize = lambda path: len(self.files[self.path(path)].encode())
         fs.list = self.list
         fs.getDrive = self.drive
-        fs.getCapacity = lambda p: self.capacity
+        fs.getCapacity = lambda path: self.capacity
         def free_space(path):
             self.drive(path)  # Match the documented requirement that the queried path exists.
             return self.capacity - self.used()
@@ -85,8 +88,9 @@ class Computer:
         path = self.path(path)
         assert path in self.dirs
         prefix = path + '/' if path else ''
-        names = {p[len(prefix):].split('/')[0] for p in self.files.keys() | self.dirs
-                 if p.startswith(prefix) and p != path}
+        names = {candidate[len(prefix):].split('/')[0]
+                 for candidate in self.files.keys() | self.dirs
+                 if candidate.startswith(prefix) and candidate != path}
         return self.lua.table_from(sorted(names))
 
     def used(self):
@@ -103,8 +107,10 @@ class Computer:
 
     def delete(self, path):
         path = self.path(path)
-        self.files = {p: v for p, v in self.files.items() if p != path and not p.startswith(path + '/')}
-        self.dirs = {p for p in self.dirs if p != path and not p.startswith(path + '/')}
+        self.files = {candidate: value for candidate, value in self.files.items()
+                      if candidate != path and not candidate.startswith(path + '/')}
+        self.dirs = {candidate for candidate in self.dirs
+                     if candidate != path and not candidate.startswith(path + '/')}
 
     def move(self, source, target):
         source, target = self.path(source), self.path(target)
@@ -117,8 +123,11 @@ class Computer:
             self.files[target] = self.files.pop(source)
         else:
             assert source in self.dirs
-            moved_files = {target + p[len(source):]: v for p, v in self.files.items() if p.startswith(source + '/')}
-            moved_dirs = {target + p[len(source):] for p in self.dirs if p == source or p.startswith(source + '/')}
+            moved_files = {target + candidate[len(source):]: value
+                           for candidate, value in self.files.items()
+                           if candidate.startswith(source + '/')}
+            moved_dirs = {target + candidate[len(source):] for candidate in self.dirs
+                          if candidate == source or candidate.startswith(source + '/')}
             self.delete(source)
             self.files.update(moved_files)
             self.dirs.update(moved_dirs)
@@ -166,7 +175,11 @@ print('PASS full bundled source round-trip and existing installation protection'
 # Do not derive expectations from update_paths: a forgotten manifest entry must fail.
 complete = Computer();complete.run(installer)
 program_paths = ['main.lua', 'agent.lua', 'startup.lua', 'diagnostics.lua']
-program_paths += [p.relative_to(root).as_posix() for p in (root / 'lib').glob('*.lua')]
+program_paths += [
+    path.relative_to(root).as_posix()
+    for path in (root / 'lib').glob('*.lua')
+    if path.name != 'demo.lua'
+]
 for name in program_paths:
     complete.files['reactor-control/' + name] = '-- old installed module\n'
 complete.files['reactor-control/config.lua'] = '-- user configuration\n'
@@ -204,7 +217,8 @@ print('PASS peer setup validates role and pairing; controller ID zero survives b
 
 custom = Computer();custom.answers = []
 custom.mkdir('plants')
-custom.lua.globals().shell.resolve = lambda p: custom.path('plants/' + p) if not p.startswith('/') else custom.path(p)
+custom.lua.globals().shell.resolve = lambda path: (
+    custom.path('plants/' + path) if not path.startswith('/') else custom.path(path))
 custom.run(installer, 'custom build', '--companion', '7')
 assert boot_target(custom, 'plants/custom build') == ('/plants/custom build/agent.lua', ('7',))
 print('PASS explicit companion role and custom relative directory boot using literal absolute paths')
@@ -228,7 +242,7 @@ for path in ('startup', 'startup/reactor-control.lua'):
 print('PASS invalid roles and conflicting startup files fail before installation writes')
 
 recoverable = Computer()
-recoverable.fail_write = lambda p: p == 'reactor-control/startup-launcher.tmp'
+recoverable.fail_write = lambda path: path == 'reactor-control/startup-launcher.tmp'
 must_fail(recoverable, installer, 'Program installed, but startup setup failed', '--controller')
 assert 'reactor-control/main.lua' in recoverable.files
 assert 'startup/reactor-control.lua' not in recoverable.files

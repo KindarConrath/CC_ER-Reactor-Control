@@ -221,8 +221,8 @@ function Devices.poll(config)
       }
     end
   end
-  table.sort(devices, function(a, b)
-    return a.name < b.name
+  table.sort(devices, function(leftDevice, rightDevice)
+    return leftDevice.name < rightDevice.name
   end)
   return devices
 end
@@ -239,8 +239,8 @@ function Devices.inspect(config)
     table.sort(entry.methods)
     result[#result + 1] = entry
   end
-  table.sort(result, function(a, b)
-    return a.name < b.name
+  table.sort(result, function(leftEntry, rightEntry)
+    return leftEntry.name < rightEntry.name
   end)
   return result
 end

@@ -9,6 +9,9 @@
 - Record completed development-world acceptance results and verify the pinned Basalt2 revision,
   license, and bundled-file hashes.
 - Add repository ignore rules for generated packages, local settings, diagnostics, and Python caches.
+- Expand abbreviated presentation, companion, display, demo, packaging, adapter, and test-fixture
+  names; format compressed multi-statement code so each operation is readable without changing behavior.
+- Keep the demo implementation in the source archive while omitting it from installed computers.
 - Keep reactor/turbine regulation, saved settings, networking, and UI behavior unchanged.
 
 ## 0.1.41 — Draconic Evolution Energy Core support

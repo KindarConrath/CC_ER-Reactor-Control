@@ -3,29 +3,29 @@ package.path='./?.lua;'..package.path
 local Display=require('lib.display')
 local attached={}
 local function monitor()
-  local m={};for k,v in pairs(term) do m[k]=v end
-  local original=m.blit
-  m.blit=function(...)
-    local present=false;for _,v in pairs(attached) do if v==m then present=true end end
+  local monitor={};for key,value in pairs(term) do monitor[key]=value end
+  local original=monitor.blit
+  monitor.blit=function(...)
+    local present=false;for _,value in pairs(attached) do if value==monitor then present=true end end
     assert(present,'rendered to detached monitor');return original(...)
   end
-  return m
+  return monitor
 end
-peripheral.getNames=function() local names={};for n in pairs(attached) do names[#names+1]=n end;return names end
-peripheral.hasType=function(n,kind) return attached[n]~=nil and kind=='monitor' end
-peripheral.wrap=function(n) return attached[n] end
-peripheral.getName=function(m) for n,v in pairs(attached) do if v==m then return n end end;error('not a monitor') end
-peripheral.getType=function(m) peripheral.getName(m);return 'monitor' end
-local c=dofile('config.lua');c.calibration={};c.storage={'demo/battery'}
+peripheral.getNames=function() local names={};for peripheralName in pairs(attached) do names[#names+1]=peripheralName end;return names end
+peripheral.hasType=function(peripheralName,kind) return attached[peripheralName]~=nil and kind=='monitor' end
+peripheral.wrap=function(peripheralName) return attached[peripheralName] end
+peripheral.getName=function(monitor) for peripheralName,value in pairs(attached) do if value==monitor then return peripheralName end end;error('not a monitor') end
+peripheral.getType=function(monitor) peripheral.getName(monitor);return 'monitor' end
+local testConfig=dofile('config.lua');testConfig.calibration={};testConfig.storage={'demo/battery'}
 local backend=require('lib.demo').new(true)
-local app=require('lib.app').new(c,backend,'.',true)
+local app=require('lib.app').new(testConfig,backend,'.',true)
 app.enqueue('mode',nil,'auto');app.tick();assert(app.mode=='auto')
 local control=app.control
-local selectDisplay=Display.controller(c,term)
+local selectDisplay=Display.controller(testConfig,term)
 assert(selectDisplay()==term)
 local env=setmetatable({},{__index=_ENV});env._G=env
 local basalt=assert(loadfile('vendor/basalt.lua','t',env))()
-basalt.getErrorManager().error=function(e) error(e) end
+basalt.getErrorManager().error=function(displayError) error(displayError) end
 local ui=require('lib.ui').new(basalt,app,selectDisplay(),selectDisplay)
 ui.refresh();basalt.update('timer',999)
 local function event(name,...)
@@ -50,6 +50,6 @@ assert(app.queue[1].op=='mode');app.queue={}
 local replacement=monitor();attached.monitor_10=replacement;event('peripheral','monitor_10')
 basalt.update('monitor_touch','monitor_10',4,3)
 assert(app.queue[1].op=='mode');app.queue={}
-c.controllerDisplay.mode='terminal';ui.refresh();assert(basalt.getActiveFrame(term))
-c.controllerDisplay.mode='auto';ui.refresh();assert(basalt.getActiveFrame(replacement))
+testConfig.controllerDisplay.mode='terminal';ui.refresh();assert(basalt.getActiveFrame(term))
+testConfig.controllerDisplay.mode='auto';ui.refresh();assert(basalt.getActiveFrame(replacement))
 print('PASS controller live display fallback, replacement, resize, input and uninterrupted Auto state')
