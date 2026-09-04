@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.42 — first public prerelease preparation
+
+- Replace the development diary README with installation, setup, supported-storage, operation,
+  diagnostics, recovery, and contributor guidance for ATM10 on Minecraft 1.21.1.
+- Make the normal release build produce an installer and source archive without an updater asset;
+  retain explicit updater generation for compatibility tests and later public releases.
+- Record completed development-world acceptance results and verify the pinned Basalt2 revision,
+  license, and bundled-file hashes.
+- Add repository ignore rules for generated packages, local settings, diagnostics, and Python caches.
+- Keep reactor/turbine regulation, saved settings, networking, and UI behavior unchanged.
+
 ## 0.1.41 — Draconic Evolution Energy Core support
 
 - Recognize the ATM10 `draconic_rf_storage` peripheral as native FE energy storage.

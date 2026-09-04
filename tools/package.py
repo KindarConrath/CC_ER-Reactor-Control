@@ -1,5 +1,6 @@
 """Build compact offline CC packages using lossless LZW/base64 payloads."""
 from pathlib import Path
+import argparse
 import base64
 import json
 import zipfile
@@ -42,7 +43,10 @@ def compress(data):
     return base64.b64encode(packed).decode('ascii')
 
 
-runtime = ['main.lua', 'agent.lua', 'startup.lua', 'diagnostics.lua', 'config.lua', 'THIRD_PARTY_NOTICES.txt']
+runtime = [
+    'main.lua', 'agent.lua', 'startup.lua', 'diagnostics.lua', 'config.lua',
+    'LICENSE', 'THIRD_PARTY_NOTICES.txt',
+]
 runtime += [p.relative_to(root).as_posix() for p in sorted((root / 'lib').glob('*.lua'))]
 runtime += ['vendor/basalt.lua', 'vendor/BASALT-LICENSE.txt']
 # Refresh every first-party module. User configuration and the pinned vendor bundle
@@ -63,25 +67,45 @@ def build(names, role):
     return path
 
 
-def main():
-    out.mkdir(exist_ok=True)
-    installer = build(runtime, 'install')
-    updater = build(update_paths, 'update')
-    archive_path = out / f'reactor-control-{VERSION}.zip'
-    source_paths = set(runtime + ['README.md', 'CHANGELOG.md'])
+def source_files():
+    paths = set(runtime + ['README.md', 'CHANGELOG.md'])
     for directory in ('docs', 'tests', 'tools'):
-        source_paths.update(
+        paths.update(
             path.relative_to(root).as_posix()
             for path in (root / directory).rglob('*')
             if path.is_file() and path.suffix in {'.lua', '.py', '.md', '.txt'}
         )
-    source_paths.update(name for name in ('LICENSE', 'NOTICE') if (root / name).is_file())
+    paths.update(name for name in ('LICENSE', 'NOTICE') if (root / name).is_file())
+    paths.add('.gitignore')
+    return paths
+
+
+def build_archive(installer):
+    archive_path = out / f'reactor-control-{VERSION}.zip'
     with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as archive:
-        for name in sorted(source_paths):
+        for name in sorted(source_files()):
             archive.write(root / name, 'reactor-control/' + name)
         archive.write(installer, installer.name)
-        archive.write(updater, updater.name)
-    for path in (installer, updater, archive_path):
+    return archive_path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Build Reactor Control release packages')
+    parser.add_argument(
+        '--with-updater', action='store_true',
+        help='also build the maintained updater for compatibility testing or later releases')
+    return parser.parse_args()
+
+
+def main():
+    arguments = parse_args()
+    out.mkdir(exist_ok=True)
+    installer = build(runtime, 'install')
+    artifacts = [installer]
+    if arguments.with_updater:
+        artifacts.append(build(update_paths, 'update'))
+    artifacts.append(build_archive(installer))
+    for path in artifacts:
         print(f'{path} ({path.stat().st_size:,} bytes)')
 
 

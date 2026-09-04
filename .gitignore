@@ -1,0 +1,9 @@
+dist/
+__pycache__/
+*.py[cod]
+*.tmp
+settings.dat
+settings.dat.bak
+startup.dat
+probe.txt
+scan.txt

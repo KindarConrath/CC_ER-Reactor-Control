@@ -6,7 +6,9 @@ Basalt2
   Project: https://github.com/Pyroxenium/Basalt2
   Recorded source revision: ba6c6911d2a317b452629faf77e55c7929857c73
   Bundled code: vendor/basalt.lua
+  Bundled code SHA-256: 17b96ebb0f551e336ff92c70bb8fa2ac353bddc80d2b9df830a2203103f79dad
   Full copyright, permission and warranty notice: vendor/BASALT-LICENSE.txt
+  License notice SHA-256: 0514f3329f2c431d0e08c637f26ef56e5f5d763f5709d9fb111e653d4ab73f32
 
 The Basalt2 bundle and its full notice are shipped unchanged in this build.
 Keep the full notice when redistributing the bundle. This notice is not a
@@ -15,4 +17,4 @@ replacement for the full MIT license text.
 ReactorController by Kasra-G and cc-fusionmon by hexxone are planned visual
 references. Their code and assets are not bundled in this release.
 
-These third-party terms do not choose a license for Reactor Control's own code.
+Reactor Control is separately licensed under the MIT License in LICENSE.

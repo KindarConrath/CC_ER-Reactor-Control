@@ -41,7 +41,7 @@ if helpOnly then
 end
 
 assert(not fs.exists(destination),
-  "Destination exists. Use the updater to preserve your settings.")
+  "Destination exists. Use a release updater when provided, or preserve your settings and remove the old installation first.")
 local stage = destination .. "-install-@VERSION@.tmp"
 assert(not fs.exists(stage),
   "Previous staging directory exists: " .. stage .. ". Inspect it before retrying.")

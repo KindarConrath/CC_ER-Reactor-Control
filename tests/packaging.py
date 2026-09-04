@@ -12,10 +12,14 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 version = builder.VERSION
 installer = (dist / f'reactor-control-install-{version}.lua').read_text()
-updater = (dist / f'reactor-control-update-{version}.lua').read_text()
+updater_path = builder.build(builder.update_paths, 'update')
+updater = updater_path.read_text()
 
 with builder.zipfile.ZipFile(dist / f'reactor-control-{version}.zip') as archive:
     assert archive.read('reactor-control/tools/demo.lua') == (root / 'tools/demo.lua').read_bytes()
+    assert f'reactor-control-update-{version}.lua' not in archive.namelist()
+    assert f'reactor-control-install-{version}.lua' in archive.namelist()
+print('PASS first-release archive contains installer and source, but no updater artifact')
 assert 'tools/demo.lua' not in builder.runtime
 assert 'tools/demo.lua' not in builder.update_paths
 print('PASS development demo launcher stays in source archive, outside installed runtime')
